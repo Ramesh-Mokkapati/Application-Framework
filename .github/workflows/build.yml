@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+    tags:     ["v*.*.*"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Build Debug and Release, run the unit tests, and package the outputs
+  # on every push / PR
+  # -------------------------------------------------------------------------
+  build:
+    name: ${{ matrix.configuration }}|x64
+    runs-on: windows-2022
+
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v3
+        # Locates the VS 2022 MSBuild on windows-2022 and adds it to PATH.
+        # The windows-2022 runner ships the "Desktop development with C++"
+        # workload (v143 build tools), which every project here uses.
+
+      - name: Restore NuGet packages
+        # packages/ is git-ignored: CoreTests needs googletest restored from packages.config
+        run: msbuild Application-Framework.sln /t:Restore /p:RestorePackagesConfig=true /nologo /v:minimal
+
+      - name: Build ${{ matrix.configuration }} x64
+        run: |
+          msbuild Application-Framework.sln `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=x64 `
+            /m `
+            /v:minimal `
+            /nologo
+
+      - name: Run unit tests
+        # stdin isn't a console on the runner, so CoreTests doesn't wait for Enter.
+        # A failing test gives a non-zero exit code, which fails this step.
+        working-directory: x64\${{ matrix.configuration }}
+        run: .\CoreTests.exe --gtest_output=xml:CoreTests-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults-${{ matrix.configuration }}-x64
+          path: x64\${{ matrix.configuration }}\CoreTests-results.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Stage package
+        # dist\
+        #   bin\      sample applications (+ FeatureTour.ini)
+        #   lib\      Core.lib
+        #   include\  Core headers
+        #   README.md
+        run: |
+          $out = "x64\${{ matrix.configuration }}"
+          New-Item -ItemType Directory -Force dist\bin, dist\lib, dist\include | Out-Null
+          Copy-Item "$out\FeatureTour.exe", "$out\FeatureTour.ini", "$out\SingleInstance.exe", "$out\NetworkAdapters.exe" dist\bin -ErrorAction Stop
+          Copy-Item "$out\Core.lib" dist\lib -ErrorAction Stop
+          Copy-Item Core\*.h dist\include -ErrorAction Stop
+          Copy-Item README.md dist -ErrorAction Stop
+
+      - name: Upload ${{ matrix.configuration }} artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.configuration }}-x64
+          path: dist\
+          if-no-files-found: error
+          retention-days: 30
+
+  # -------------------------------------------------------------------------
+  # Attach the Release package to a GitHub Release when a v*.*.* tag is pushed.
+  # Runs only after both build matrix legs (including their tests) succeed.
+  # -------------------------------------------------------------------------
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write       # required to create / update a GitHub Release
+
+    steps:
+      - name: Download Release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Release-x64
+          path: package
+
+      - name: Zip package
+        run: |
+          cd package
+          zip -r "../Application-Framework-${{ github.ref_name }}-x64.zip" .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Application-Framework-${{ github.ref_name }}-x64.zip
+          generate_release_notes: true   # auto-generates notes from merged PRs / commits

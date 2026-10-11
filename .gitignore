@@ -1,0 +1,84 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.VC.VC.opendb
+*.opendb
+*.sdf
+*.ncb
+*.aps
+ipch/
+*.ipch
+
+# Build output
+dist/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM/
+ARM64/
+*.obj
+*.o
+*.pch
+*.idb
+*.pdb
+*.ilk
+*.iobj
+*.ipdb
+*.exp
+*.lib
+*.dll
+*.exe
+*.recipe
+*.res
+
+# MSBuild logs and state
+*.tlog
+*.lastbuildstate
+*.unsuccessfulbuild
+*.binlog
+msbuild.log
+
+# CMake/Ninja (if used)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+build/
+out/
+
+# Test/coverage artifacts
+TestResults/
+*.coverage
+*.coveragexml
+*.gcno
+*.gcda
+
+# Logs and temp files
+*.log
+*.tmp
+
+# NuGet
+packages/
+*.nupkg
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
