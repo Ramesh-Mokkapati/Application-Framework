@@ -110,3 +110,6 @@ jobs:
         with:
           files: Application-Framework-${{ github.ref_name }}-x64.zip
           generate_release_notes: true   # auto-generates notes from merged PRs / commits
+          # v1.2.0-rc1 etc. become pre-releases, so they never count as the "latest" release
+          # that downstream packaging (the ComponentSuite installer) picks up.
+          prerelease: ${{ contains(github.ref_name, '-') }}
